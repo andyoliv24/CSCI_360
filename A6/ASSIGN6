@@ -1,0 +1,188 @@
+//KC03D4F1 JOB ,'Andy Olivares',MSGCLASS=H
+//STEP1 EXEC PGM=ASSIST
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN DD *
+********************************************
+* Program: ASSIGN5
+* Programmer: Andy Olivares, CRAIG ULLRICH
+*
+* Register usage:
+* 10 LINKAGE
+* 12 BASE REGISTER
+* 13 FORWARD POINTER
+* 14 ADDRESS OF BASE REGISTER
+* 15 BASE REGISTER
+**************************************************************
+ENTRY    DSECT
+DESCR    DS       29C
+VALUE    DS       PL4
+*************************************
+***<MAIN ROUTINE>*********************
+MAIN     CSECT
+*ENTRY
+         USING    MAIN,12                   REG 12 BASE REG
+         STM      14,12,12(13)              STORE REGS
+         LR       12,15                     LOAD REG 15 INTO 12
+         LA       14,MSAVE                  LOAD SAVE1 ADDRESS TO 14
+         ST       14,8(13)                  STORE 14 THRU 8 INTO 12
+         ST       13,4(14)                  STORE 13 THRU 4 INTO 13
+         LR       13,14                     LOAD REG 13, INTO REG 14
+*
+         LA       1,=A(TABLE,EOT,BUFFER)    TABLE,EOT, ADDRESSES,BUFFER
+         L        10,=V(BUILD)              LOAD BUILD ADDRESS
+         BALR     14,10                     BRANCH TO BUILD
+*
+         LA       1,=A(TABLE,EOT,BUFFER)    TABLE,EOT, ADDRESSES,BUFFER
+         L        10,=V(PRINT)              LOAD BUILD ADDRESS
+         BALR     14,10
+*
+         LA       1,=A(TABLE,EOT,BUFFER)    TABLE,EOT, ADDRESSES,BUFFER
+         L        10,=V(STATS)              LOAD BUILD ADDRESS
+         BALR     14,10   
+*EXIT
+         L        13,4(13)                  RESTORE REGS
+         LM       14,12,12(13)              RESTORE REGS
+         BR       14                        CODE ENDS
+         LTORG                              LITERALS START
+TABLE    DS       800F
+EOT      DS       F
+BUFFER   DS       80C
+MSAVE    DS       18F
+***********************************************************************
+*                       BUILD EXTERNAL SUBROUTINE
+*  REG USAGE:
+*  2 TABLE ADDRESS
+*  3 EOT
+*  4 BUFFER
+*  10 BASE REGISTER
+*  14 BRANCH
+***********************************************************************
+BUILD    CSECT
+         USING     BUILD,10           SET REG10 AS BASE REG
+         USING     ENTRY,2
+         STM       14,12,12(13)       STORE REGS        
+         LR        12,15              LOAD REG 15 INTO 12
+         LA        14,BSAVE           LOAD SAVER ADDRESS INTO REG14
+         ST        13,4(,14)          STORE REG 14 INTO REG13 THRU REG4
+         ST        14,8(,13)          STORE REG 13 INTO REG14 THRU REG8
+         LR        13,14              LOAD REG 14 INTO 13
+*
+         LM        2,4,0(1)           LOAD PARAMETERS
+*
+LOOP1    DS        0H
+         XREAD     0(4),80            LOADLINE INTO BUFFE
+         BL        END
+         MVC       DESCR(29),0(4)
+         MVC       TEMP(7),32(4)
+         PACK      VALUE(4),TEMP(7)
+         LA        2,80(2)
+         B         LOOP1
+*
+END      DS        0H
+         ST        2,EOT
+         L         13,4(,13)          RESTORE REGS
+         LM        14,12,12(13)       RESTORE REGS
+         BR        14                 CODE ENDS
+*
+         LTORG                        LITERALS START
+BSAVE    DS        18F'0'
+TEMP     DS        CL7
+***********************************************************************
+*                       PRINT EXTERNAL SUBROUTINE
+*  REG USAGE:
+*  2 TABLE ADDRESS
+*  3 EOT
+*  4 BUFFER
+*  10 BASE REGISTER
+*  14 BRANCH
+***********************************************************************
+PRINT    CSECT
+         USING     PRINT,10           SET REG10 AS BASE REG
+         USING     ENTRY,2
+         STM       14,12,12(13)       STORE REGS        
+         LR        12,15              LOAD REG 15 INTO 12
+         LA        14,PSAVE           LOAD SAVER ADDRESS INTO REG14
+         ST        13,4(,14)          STORE REG 14 INTO REG13 THRU REG4
+         ST        14,8(,13)          STORE REG 13 INTO REG14 THRU REG8
+         LR        13,14              LOAD REG 14 INTO 13
+*
+         LM        2,4,0(1)           LOAD PARAMETERS
+*
+         LA        5,COST
+         XPRNT     HEADER,24
+LOOP2    DS        0H
+         C         2,0(3)
+         BE        FINISH
+         MVC       DESC(29),DESCR
+         MVC       COST(7),=XL7'402020214B2020'
+         ED        COST(7),VALUE
+         MVC       COST+7(7),=CL3' DB'
+LOOP3    MVI       0(5),C'$'
+         XPRNT     LINE,40
+         LA        2,80(2)
+         B         LOOP2
+FINISH   DS        0H
+*
+         L         13,4(,13)          RESTORE REGS
+         LM        14,12,12(13)       RESTORE REGS
+         BR        14                 CODE ENDS
+*
+         LTORG                        LITERALS START
+PSAVE    DS        18F'0'
+HEADER   DC        CL47'          Susans Business Ventures          '
+LINE     DC        C'0'
+DESC     DS        CL29
+COST     DS        CL4
+***********************************************************************
+*                       STATS EXTERNAL SUBROUTINE
+***********************************************************************
+STATS    CSECT
+         STM       14,12,12(13)       STORE REGS        
+         LR        12,15              LOAD REG 15 INTO 12
+         USING     STATS,10           SET REG10 AS BASE REG
+         USING     ENTRY,2
+         LA        14,CSAVE           LOAD SAVER ADDRESS INTO REG14
+         ST        13,4(,14)          STORE REG 14 INTO REG13 THRU REG4
+         ST        14,8(,13)          STORE REG 13 INTO REG14 THRU REG8
+         LR        13,14              LOAD REG 14 INTO 13
+*
+         LM        2,4,0(1)           LOAD PARAMETERS
+*
+         SR        5,5                 TOTAL NUM VENTS
+         LR        9,2                SAVE TABLE ADDRESS
+LOOP4    DS        0H
+         LA        2,0(2)
+         C         2,0(3)
+         BE        TOTEND
+         A         5,=F'1'
+         LA        2,80(2)
+         B         LOOP4
+TOTEND   DS        0H
+         XPRNT     HEADER2,70
+*
+         L         13,4(,13)          RESTORE REGS
+         LM        14,12,12(13)       RESTORE REGS
+         BR        14                 CODE ENDS
+*
+         LTORG 
+HEADER2  DC        C'-'
+         DC        CL37'Summary of Susans Business Ventures'
+         DC        CL26'Total number of ventures ='
+NUMSALE  DS        CL12
+         DC        CL32'Number of profitable ventures = '
+PROSALE  DS        CL12
+         DC        CL30'Total value for all ventures ='
+VALUESA  DS        CL12
+         DC        CL35'Average value for all ventures = '
+AVG      DS        CL12
+         DC        CL25'Most profitable venture:='
+MPV      DS        CL12
+         DC        CL26'Least profitable venture: ='
+LPV      DS        CL12
+CSAVE    DS        18F'0'
+***********************************************************************
+         END
+/*
+//FT05F001  DD  DSN=KC02314.SUMMER19.CSCI360.HW6DATA,DISP=SHR
+//

@@ -1,0 +1,363 @@
+//KC03D4F1 JOB ,'ANDYOLIVARES',MSGCLASS=H
+//STEP1 EXEC PGM=ASSIST
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN DD *
+*******************************************************************
+* Program: ASSIGN7
+* Programmer: Andy Olivares, CRAIG ULLRICH
+*
+* Register usage:
+* 10 LINKAGE
+* 12 BASE REGISTER
+* 13 FORWARD POINTER
+* 14 ADDRESS OF BASE REGISTER
+* 15 BASE REGISTER
+*******************************************************************
+ENTRY   DSECT
+DATE    DS    7C
+NAME    DS    13C
+SYMB    DS    3C
+NUMB    DS    PL2
+*******************************************************************
+*NAME: MAIN
+*  REGISTER USAGE:
+*  1    PARAMS
+*  10   BRANCH LOCATION
+*  13   SAVE LOCATION
+*  14   EXIT
+*  15   MAIN
+*******************************************************************
+MAIN     CSECT
+         USING MAIN,15
+         ST    14,EXIT
+         LA    13,SAVE1     SAVE AREA
+         LA    1,TABLE      LOAD INTO PARAM
+         ST    1,PARAM
+         LA    1,EOT
+         ST    1,PARAM+4
+         LA    1,PARAM      LOAD PARAM
+         L     10,=V(BUILD)
+         BALR  14,10        BRANCH TO BUILD
+         LA    1,HEAD
+         ST    1,PARAM+8
+         LA    1,PARAM      LOAD PARAM
+         L     10,=V(PRINT)
+         BALR  14,10        BRANCH TO PRINT
+         LA    1,PARAM      LOAD PARAM
+         L     10,=V(SORT)
+         BALR  14,10        BRANCH TO SORT
+         LA    1,HEADER
+         ST    1,PARAM+8
+         LA    1,PARAM      LOAD PARAM
+         L     10,=V(PRINT)
+         BALR  14,10        BRANCH TO PRINT
+*
+         L     14,EXIT      LOAD EXIT LOCATION
+         BR    14           END PROGRAM
+         LTORG              LITERALS ARE PUT HERE
+TABLE    DC    3000C' '
+EOT      DS    F
+PARAM    DC    4F'0'
+HEAD     DC    CL50'1                   Chronological List of Elements'
+         DC    CL19'           Page    '
+HEADER   DC    CL50'1                        Elements Sorted by Name  '
+         DC    CL19'           Page    '
+SAVE1    DS    18F'0'
+EXIT     DS    F
+*******************************************************************
+*NAME: BUILD
+*  Register usage:
+*    1    PARAM
+*    3    LOC ITEM IN BUFF
+*    4    LENGTH OF ITEM IN BUFF
+*    7    TABLE
+*    8    EOT
+*   13    SAVE AREA
+*   14    EXIT
+*******************************************************************
+***ENTRY CODE***
+BUILD    CSECT
+         STM   14,12,12(13)
+         LR    12,15
+         USING BUILD,10
+         LA    14,SAVE2
+         ST    13,4(,14)
+         ST    14,8(,13)
+         LR    13,14
+****
+         LM    7,8,0(1)      LOAD PARAM
+         USING ENTRY,7
+LOOP     XREAD BUFF,80       LOOP LINES
+         BL    REND
+         LA    1,BUFF
+SPACE    TRT   0(80,1),SCTAB
+***FIND NEXT
+         BZ    LOOP
+***ON FAIL RETURN TO TOP OF LOOP
+         LR    3,1           SAVE LOC OF ELEMENT
+         TRT   0(80,1),SPACES
+***ADVANCE TO NEXT SPACE
+         LR    4,1           SAVE END
+         SR    4,3           FIND LENGTH
+         BCTR  4,0           DECREMENT LENGTH
+         EX    4,EDATE       SAVE DATE
+         TR    DATE(7),LOWKEY
+***CONVERT TO LOWER
+         TRT   0(80,1),SCTAB
+***FIND NEXT
+         BZ    LOOP
+***ON FAIL RETURN TO TOP OF LOOP
+         LR    3,1           SAVE LOC OF ELEMENT
+         TRT   0(80,1),SPACES
+***ADVANCE TO NEXT SPACE
+         LR    4,1           SAVE END
+         SR    4,3           FIND LENGTH
+         BCTR  4,0           DECREMENT LENGTH
+         EX    4,ENAME       SAVE NAME
+         TR    NAME(13),LOWKEY
+***CONVERT TO LOWER
+         TR    NAME(1),HIGHKEY
+***CONVERT TO UPPER
+         TRT   0(80,1),SCTAB
+***FIND NEXT
+         BZ    LOOP
+***ON FAIL RETURN TO TOP OF LOOP
+         LR    3,1           SAVE LOC OF ELEMENT
+         TRT   0(80,1),SPACES
+***ADVANCE TO NEXT SPACE
+         LR    4,1           SAVE END
+         SR    4,3           FIND LENGTH
+         BCTR  4,0           DECREMENT LENGTH
+         EX    4,ESYMB       SAVE SYMBOL
+         TR    SYMB(3),LOWKEY
+***CONVERT TO LOWER
+         TR    SYMB(1),HIGHKEY
+***CONVERT TO UPPER
+         TRT   0(80,1),SCTAB
+***FIND NEXT
+         BZ    LOOP
+***ON FAIL RETURN TO TOP OF LOOP
+         LR    3,1           SAVE LOC OF ELEMENT
+         TRT   0(80,1),SPACES
+***ADVANCE TO NEXT SPACE
+         LR    4,1           SAVE END
+         SR    4,3           FIND LENGTH
+         BCTR  4,0           DECREMENT LENGTH
+         EX    4,ENUMB       SAVE NUM
+         LA    7,25(0,7)     ADVANCE POINTER
+         B     LOOP          BRANCH LOOP
+REND     DS    0H
+         ST    7,0(0,8)      SAVE EOT
+***EXIT CODE***
+         L     13,4(,13)
+         LM    14,12,12(13)
+         BR    14
+***
+         LTORG
+*
+EDATE    MVC   DATE(0),0(3)
+ENAME    MVC   NAME(0),0(3)
+ESYMB    MVC   SYMB(0),0(3)
+ENUMB    PACK  NUMB(2),0(0,3)
+*
+BUFF     DC    80C' '
+         DC    C'*'
+SCTAB    DC    256X'00'
+         ORG   SCTAB+C'A'
+         DC    9X'01'
+         ORG
+         ORG   SCTAB+C'J'
+         DC    9X'01'
+         ORG
+         ORG   SCTAB+C'S'
+         DC    8X'01'
+         ORG
+         ORG   SCTAB+C'a'
+         DC    9X'01'
+         ORG
+         ORG   SCTAB+C'j'
+         DC    9X'01'
+         ORG
+         ORG   SCTAB+C's'
+         DC    9X'01'
+         ORG
+         ORG   SCTAB+C'0'
+         DC    10X'01'
+         ORG
+SPACES   DC    256X'00'
+         ORG   SPACES+X'40'
+         DC    X'01'
+         ORG
+LOWKEY   DC    256C' '
+         ORG   LOWKEY+C'a'
+         DC    CL9'abcdefghi'
+         ORG
+         ORG   LOWKEY+C'j'
+         DC    CL9'jklmnopqr'
+         ORG
+         ORG   LOWKEY+C's'
+         DC    CL8'stuvwxyz'
+         ORG
+         ORG   LOWKEY+C'A'
+         DC    CL9'abcdefghi'
+         ORG
+         ORG   LOWKEY+C'J'
+         DC    CL9'jklmnopqr'
+         ORG
+         ORG   LOWKEY+C'S'
+         DC    CL8'stuvwxyz'
+         ORG
+         ORG   LOWKEY+C'0'
+         DC    CL10'0123456789'
+         ORG
+HIGHKEY  DC    256C' '
+         ORG   HIGHKEY+C'a'
+         DC    CL9'ABCDEFGHI'
+         ORG
+         ORG   HIGHKEY+C'j'
+         DC    CL9'JKLMNOPQR'
+         ORG
+         ORG   HIGHKEY+C's'
+         DC    CL9'STUVWXYZ'
+         ORG
+         ORG   HIGHKEY+C'A'
+         DC    CL9'ABCDEFGHI'
+         ORG
+         ORG   HIGHKEY+C'J'
+         DC    CL9'JKLMNOPQR'
+         ORG
+         ORG   HIGHKEY+C'S'
+         DC    CL9'STUVWXYZ'
+         ORG
+         ORG   HIGHKEY+C'0'
+         DC    CL10'0123456789'
+         ORG
+SAVE2    DS    18F'0'
+*******************************************************************
+*NAME: PRINT
+*  Register usage:
+*   6     counter
+*   7     Table pointer
+*   8     Location of EOT
+*   9     Location of page headder
+*   13    Save Area
+*   14    Exit
+*******************************************************************
+***ENTRY***
+PRINT    CSECT
+         STM   14,12,12(13)
+         LR    12,15
+         USING PRINT,10
+         LM    7,9,0(1)
+         LA    14,SAVE3
+         ST    13,4(,14)
+         ST    14,8(,13)
+         LR    13,14
+****
+         USING ENTRY,7
+         L     6,=F'0'
+LOOP2    C     7,0(0,8)
+         BE    PEND
+         C     6,=F'0'       ARE WE DONE?
+         BE    PHEADDER      IF SO PRINT
+CONT     MVC   PNAME(13),NAME
+***STORE NAME
+         MVC   PSYMB(2),SYMB
+***STORE SYMBOL
+         MVC   PDATE(7),DATE
+***STORE DATE
+         MVC   PNUMB(4),=X'40202020'
+***STORE EDIT CODE
+         ED    PNUMB(4),NUMB
+***STORE NUMBER
+         XPRNT LINE,65      PRINT
+         LA    7,25(0,7)     ADVANCE POINTER
+         S     6,=F'1'       DECREMENT ONE
+         B     LOOP2
+PHEADDER L     6,=F'50'      SET THE COUNTER
+         MVC   65(4,9),=X'40202020'
+***FORMAT PAGE NUM
+         ED    65(4,9),COUNT
+***STORE PAGE NUM
+         XPRNT 0(,9),69      PAGE HEADER
+         XPRNT PHEAD,69      TABLE HEADER
+         AP    COUNT,=PL1'1'
+***INCREMENT COUNTER
+         B     CONT          BRANCH TO CONT
+*
+PEND     L     13,4(,13)
+         LM    14,12,12(13)
+         BR    14
+         LTORG
+PHEAD    DC    CL37'-Name of Element   Chemical Symbol   '
+         DC    CL32'Atomic Number    Date Discovered'
+COUNT    DC    PL2'1'
+LINE    DC    C' '
+PNAME    DC    13C' '
+         DC    11C' '
+PSYMB    DC    2C' '
+         DC    14C' '
+PNUMB    DC    4C' '
+         DC    13C' '
+PDATE    DC    7C' '
+SAVE3    DS    18F'0'
+*******************************************************************
+*NAME: SORT
+*  Register usage:
+*    2    sort start location
+*    3    upper table element
+*    4    lower table element
+*    7    Location of table
+*    8    Location of EOT
+*   13    Save Area
+*   14    Exit
+*******************************************************************
+***ENTRY***
+SORT     CSECT
+         STM   14,12,12(13)
+         LR    12,15
+         USING SORT,10
+         LA    14,SAVE4
+         ST    13,4(,14)
+         ST    14,8(,13)
+         LR    13,14
+         LM    7,8,0(1)
+****
+         LR    2,7
+         L     8,0(,8)
+         A     8,=F'-50'
+LOOP3    DS    0H            NUM OF ELEMENT IN TABLE
+         CR    2,8
+         BE    FINISH
+         BH    FINISH
+         LA    3,50(0,2)
+         LA    4,75(0,2)
+LOOP4    DS    0H
+***LOOP4 THE LOWER ELEMENT IS GREATER THAN THE UPPER
+         A     3,=F'-25'     DECREMENT POINTER
+         A     4,=F'-25'     DECREMENT POINTER
+         CLC   7(13,3),7(4)  CHECK LOOP3 HIGH
+         BH    SWAP          BRANCH TO SAWP ON HIGH
+         LA    2,25(0,2)     ADVANCE POINTER
+         B     LOOP3           BRANCH TO LOOP3
+SWAP     DS    0H            SWAP ELEMENTS
+         MVC   TEMP(25),0(3) SAVE R3
+         MVC   0(25,3),0(4)  STORE R4 IN R3
+         MVC   0(25,4),TEMP  STORE TEMP IN R4
+         CR    3,7           CHECK POSITION OF TABLE,START
+         BE    LOOP3         ARE WE THERE? BRANCH TO LOOP3
+         B     LOOP4            BRANCH TO LOOP4
+***EXIT***
+FINISH   L     13,4(,13)
+         LM    14,12,12(13)
+         BR    14
+***
+         LTORG
+TEMP     DS    25C
+SAVE4    DS    18F'0'
+*******************************************************************
+         END   MAIN
+/*
+//FT05F001  DD  DSN=KC02314.SUMMER19.CSCI360.HW7DATA,DISP=SHR
+//

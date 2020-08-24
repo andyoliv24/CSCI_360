@@ -1,0 +1,39 @@
+//KC03D4F1 JOB ,'Andy Olivares' ,MSGCLASS=H                             00010002
+//STEP1 EXEC PGM=ASSIST                                                 00020001
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR                        00030001
+//SYSPRINT DD SYSOUT=*                                                  00040001
+//SYSIN DD *                                                            00050001
+**************************************************                      00060001
+* NAME: Andy Olivares                                                   00070006
+*                                                                       00080006
+* COURSE NUMBER: CSCI360                                                00090006
+*                                                                       00100006
+* ASSIGNMENT NUMBER: 1                                                  00110006
+*                                                                       00120006
+* DATE/TIME:  Tuesday, June 25, 2019                                    00130012
+*                                                                       00140001
+* Declaring variables, adding and subtracting, storing                  00150015
+*                                                                       00160006
+* 67       NUM1                                                         00170006
+* 203      NUM2                                                         00180006
+*********************************************************               00190006
+MAIN       CSECT                                                        00200006
+           USING MAIN,15                                                00210006
+           L     1,44(,15)      Load number 1 into reg1                 00220021
+           L     2,48(,15)      Load number 2 into reg2                 00230021
+           AR    1,2            Add reg1 and reg                        00240015
+           ST    1,52(,15)      Stores reg1 into SUM                    00250021
+           L     3,44(,15)      Load number 1 into reg3                 00260021
+           L     4,48(,15)      Load number 2 into reg4                 00270021
+           SR    4,3            Subtract reg3 and reg4                  00280022
+           ST    4,56(,15)      Stores reg3 into DIFF                   00290023
+           XDUMP 52(,15),8      Dumps values of SUM                     00300021
+           XDUMP 56(,15),8      Dumps values of DIFF                    00310021
+           BR    14             Indicates end                           00320015
+NUM1       DC    F'67'          Declares NUM1 with value 67             00330019
+NUM2       DC    F'203'         Declares NUM2 with value 203            00340019
+SUM        DS    F              Declares SUM fullword storage           00350019
+DIFF       DS    F              Declares DIFF fullword storage          00360019
+           END   MAIN           Ends program                            00370015
+/*                                                                      00380013
+//                                                                      00390013

@@ -1,0 +1,148 @@
+//KC03D4F1 JOB ,'Andy Olivares',MSGCLASS=H
+//STEP1 EXEC PGM=ASSIST
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN DD *
+********************************************
+* Program: ASSIGN4
+* Programmer: Andy Olivares
+*
+* Register usage:
+* 2  POINTER TO TABLE
+* 3  USED FOR EOT
+* 11 USED TO LINK SUBROUTINES (BUILD, PRINT, EVENS)
+* 14 CODE ENDS
+* 15 BASE REGISTER
+**************************************************************
+MAIN      CSECT                                                 
+          USING MAIN,15                                   
+          LA    2,TABLE           POINTER TO TABLE       
+          BAL   11,BUILD          GOES TO BUILD SUBROUTINE 
+          ST    3,EOT             STORES END OF FILE(TABLE)
+          BAL   11,PRINT          GOES TO PRINT SUBROUTINE
+          BAL   11,EVENS          GOES TO EVENS SUBROUTINE
+          BR    14                ENDS PROGRAM
+***************************************************************
+*********************************************************************** 
+*                       BUILD SUBROUTINE
+*  REG USAGE:
+*  2 USED AS A POINTER TO NEXT ENTRY
+*  3 IS USED AS A POINTER TO EOT
+*  5 USED FOR STORING NUMBER
+*  7 USED AS A COUNTER 
+*  11 TERMINATES CODE   
+***********************************************************************
+BUILD     DS     0H               START SUBROUTINE
+          STM    4,2,RESET        SAVE STATE REGISTERS      
+          SR     7,7              SET COUNTER TO ZERO                 
+LOOP      XREAD  BUFFER,80        READ FIRST RECORD                   
+          BC     B'0100',LOOPEND  IF EOF GO TO LOOPEND               
+          C      7,=F'72'         COMPARE REG7 TO 72           
+          BE     LOOPEND          GO TO LOOPEND
+          LA     1,BUFFER         LOAD ADDRESS OF BUFFER IN REG1
+          XDECI  5,0(0,1)         CONVERT TO BINARY NUMBER INTO REG5
+          ST     5,0(2)           STORE NUMBER INTO REG5    
+          LA     2,4(2)           ADVANCE TABLE POINTER INTO REG2
+          A      7,ONE            ADD ONE TO COUNTER 
+          B      LOOP             GO TO LOOP     
+LOOPEND   LR     3,2              STORE REG2 IN REG3    
+          LM     4,2,RESET        RESTORE REGISTERS    
+          BR     11               CODE ENDS
+***********************************************************************
+***********************************************************************
+*                         PRINT SUBROUTINE
+*  REG USAGE:
+*  2 USED AS VALUE POINTER
+*  3 USED AS EOT
+*  4 USED AS STORAGE FOR NUMBERS
+*  7 USED AS A COUNTER
+*  9 USED AS POINTER TO NUMBER STORAGE
+*  11 TERMINATES CODE
+*********************************************************************** 
+PRINT     DS     0H                START SUBROUTINE PRINT
+          STM    0,15,RESET        SAVE ALL REGISTERS            
+          XPRNT  HEADNUM,69        PRINT HEADER FOR NUMBERS        
+          SR     7,7               SET REG7 TO  0              
+LOOPP     MVI    NUMS,C' '         USE OF OVERLAP
+          MVC    NUMS+1(72),NUMS   CLEARING LAST FIELDS    
+          LA     9,NUMS            POINTER NUMS INTO REG9
+LOOPP1    CR     2,3               COMPARE REG2 TO REG3(EOT)   
+          BC     B'1010',END       IF TABLE ENDS GO TO END       
+          C      7,=F'7'           CHECK FOR 7 NUMBERS   
+          BE     LOOPP2            GO TO LOOPP2
+          L      4,0(2)            LOAD VALUE FROM TO TABLE INTO REG4
+          XDECO  4,0(9)            FORMAT NUMBER    
+          LA     2,4(2)            ADVANCE TABLE POINTER     
+          LA     9,12(9)           AVANCE NUMBER TAG POINTER
+          A      7,ONE             INCREMENT COUNTER BY ONE
+          B      LOOPP1            GO TO LOOPP1
+LOOPP2    L      7,=F'0'           SET REG7 TO 0   
+          XPRNT  NUMBER,86         PRINT LINE NUMBER 
+          B      LOOPP             GO TO LOOPP  
+END       XPRNT  NUMBER,86         PRINT LINE NUMBER
+          LM     0,15,RESET        RESET ALL REGISTERS                
+          BR     11                CODE ENDS
+***********************************************************************
+***********************************************************************
+*                     EVENS SUBROUTINE
+*  REG USAGE:
+*  2 USED AS VALUE POINTER
+*  3 USED AS EOT
+*  6 USED TO STORE NUMBER
+*  7 USED AS COUNTER
+*  8 USED AS NUMBER POINTER0
+*  11 TERMINATES CODE
+***********************************************************************
+EVENS     DS     0H
+          STM    0,15,RESET            SAVE ALL REGISTERS          
+          XPRNT  HEADER2,69            PRINT HEADER FOR EVEN NUMBERS
+          SR     7,7                   SET REG7 TO 0       
+LOOPE     MVI    EVENSN,C' '           USE DESTRUCTIVE
+          MVC    EVENSN+1(72),EVENSN   CLEARING LAST FIELDS    
+          LA     8,EVENSN              STORE EVENSN TAG POINTER INTO 8
+LOOPE1    CR     2,3                COMPARE REG2 TO REG3(EOT) 
+          BC     B'1010',ENDLOOP    IF TABLE ENDS GO TO    
+          C      7,=F'5'            COMPARE REG7 TO 5  
+          BE     LOOPE2             IF 5 NUMBERS GO TO LOOPE2
+          L      5,0(2)             LOAD NUMBER INTO REG5
+          L      6,0(2)             LOAD NUMBER INTO REG6
+          M      4,=F'1'            GET READY FOR DIVISION              
+          D      4,=F'2'            DIVIDE REG4 BY 2             
+          LA     2,4(2)             ADVANCE TABLE POINTER             
+          C      4,=F'0'            COMPARE 4 TO 0
+          BNE    LOOPE1             IF REMAINDER IS NOT 0 SKIP NUMBER   
+          XDECO  6,0(8)             STORE NUMBER INTO REG6
+          LA     8,12(8)            ADVANCE NUMBER POINTER             
+          A      7,ONE              ADD ONE TO COUNTER               
+          B      LOOPE1             GO TO LOOPE1
+LOOPE2    SR     7,7                RESET COUNTER TO 0                   
+          XPRNT  NUMBER2,60         PRINT EVEN NUMBER LINE
+          B      LOOPE              GO TO LOOPE
+ENDLOOP   XPRNT  NUMBER2,60         PRINT EVEN NUMBER LINE
+          LM     0,15,RESET         RESET REGISTERS              
+          BR     11                 CODE ENDS
+*******************************************************************
+          LTORG
+TABLE     DC    72F'-256'          DEFINED TABLE             
+EOT       DS    F                  ADDRESS OF UNSED FULLWORD
+BUFFER    DS    80C                BUFFER
+          DC    C'*'               DELIMITER
+ONE       DC    F'1'               
+RESET     DS    15F                RESETS REGISTERS TO 15F
+HEADNUM   DC    C'0'               PRINTS NUMBERS HEADER
+          DC    CL30' '           
+          DC    CL7'NUMBERS'
+          DC    CL30' '
+HEADER2   DC    C'0'               PRINTS EVEN NUMBERS HEADER
+          DC    CL40' '
+          DC    CL12'EVEN NUMBERS'
+          DC    CL30' ' 
+NUMBER    DC    C'0'               PRINTS NUMBERS LINE
+NUMS      DS    CL12               PRINTS NUMBER
+NUMBER2   DC    C'0'               PRINTS EVEN NUM LINE
+EVENSN    DS    CL12               PRINTS EVEN NUMBERS
+          DC    CL30' '              
+          END   MAIN
+/*
+//FT05F001  DD  DSN=KC02314.SUMMER19.CSCI360.HW4DATA,DISP=SHR
+//

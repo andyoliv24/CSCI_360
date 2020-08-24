@@ -1,0 +1,146 @@
+//KC03D4F1 JOB ,'Andy Olivares',MSGCLASS=H
+//STEP1 EXEC PGM=ASSIST
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN DD *
+********************************************
+* Program: ASSIGN3 
+* Programmer: Andy Olivares
+*                                
+* Register usage:
+*
+* 0       HAS SHIPPING
+* 1       USED FOR XDECI
+* 2       HAS ORDER ID
+* 3       HAS PRODUCT ID
+* 4       HAS PRICE EACH
+* 5       HAS NUMBER ORDERED
+* 6       HAS PRETOTAL
+* 7       HAS PRODUCT OF PRICE * EACH
+* 8       HAS DISCOUNT
+* 9       COUNTER FOR NUMBER OF SALES
+* 10      HAS TOTAL SALES WITH SHIPPING OF 0
+* 11      HAS SUM OF ALL SALES
+* 12      USED AS EVEN REGISTER FOR DIVISION
+* 13      USED FOR MUTIPLICATION(HAS SAME VALUE AS REG4)
+* 14      FOR BR
+* 15      BASE REGISTER
+********************************************
+MAIN       CSECT
+           USING     MAIN,15
+           TITLE     'Andy Olivares CSCI 360'
+           EJECT
+           SPACE
+           XPRNT     HEADER,69           PRINTS STORE TITLE
+           SR        9,9                 SETS R9 TO 0
+           SR        10,10               SETS R10 TO 0
+           SR        11,11               SETS REG11 TO 0
+           SR        12,12               SETS REG12 TO REG12
+           XPRNT     DESCRIP,100         PRINTS LINE
+LOOP       XREAD     BUFFER,80           READS INPUT
+           BC        B'0100',LOOPEND     CHECK IF END OF FILE
+           SR        8,8                 SETS REG8 TO 0
+           SR        0,0                 SETS REG0 TO 0
+           A         9,=F'1'             INCREMENTE COUNTER
+           XDECI     2,BUFFER            GET FIRST NUM
+           XDECI     3,0(1)              GET SECOND NUM
+           XDECI     4,0(1)              GET THIRD NUM
+           XDECI     5,0(1)              GET FOURTH NUM
+           LR        7,5                 LOAD REG5 INTO REG7
+           LR        13,4                LOAD REG4 INTO REG13
+           MR        6,13                MULTIPLY REG13 TO REG6
+           XDECO     2,ORDERID           PRINTS ORDER ID
+           XDECO     3,PRODID            PRINTS PRODUCT ID
+           XDECO     4,PRICE             PRINTS PRICE
+           XDECO     5,NUMORD            PRINTS NUMBER ORDER
+           C         7,=F'12500'         COMPARE REG7 TO 12500
+           BC        B'1010',DIS         BRANCH TO DIS
+           A         8,=F'0'             ADD 0 TO REG8
+           BC        B'1111',DIS2        BRANCH TO DIS2
+DIS        A         8,=F'600'           ADD 600 TO REG8
+DIS2       C         2,=F'566824'        COMPARE REG3 TO 566824
+           BC        B'1000',DIS3        BRANCH TO DIS3
+           A         8,=F'0'             ADD 0 TO REG8
+           BC        B'1111',SHIP        BRANCH TO SHIP
+DIS3       A         8,=F'1000'          ADD 1000 TO REG8
+SHIP       C         7,=F'7500'          COMPARES REG7 TO 7500
+           BC        B'1010',FINISH2     BRANCHES TO FINISH2
+           A         0,=F'500'           ADD 500 TO REG9
+           BC        B'1111',FINISH3     BRANCHES TO FINISH3
+FINISH2    A         0,=F'0'             ADDS 0 TO REG9
+           A         10,=F'1'            INCREMENTS SHIP COUNTER
+FINISH3    XDECO     8,DISC              FORMAT REG8 INTO DISC
+           XDECO     0,SHIPPIN           FORMAT REG0 INTO SHIPPIN
+           AR        7,0                 ADDS PRETOTAL PLUS SHIPPING
+           SR        7,8                 SUBTRACTS PRETOTAL MINUS
+           AR        11,7                ADDS TOTAL OF ALL SALES
+           XDECO     7,TOTAL             PRINTS TOTAL PER ORDER                
+           XPRNT     LINE,99             PRINT LINE
+           BC        B'1111',LOOP        GO TO TOP OF LOOP
+LOOPEND    XDECO     10,SHIP0            PRINTS NUMBER WITH SHIPP 0
+           XDECO     9,TOTALSA           PRINTS NUMBER OF SALES
+           XDECO     11,SUM              PRINTS TOTAL SALES SUM
+           XPRNT     RESULINE,39         PRINTS LINE RESULINE
+           XPRNT     SHIPLINE,39         PRINTS SHIPPING LINE
+           XPRNT     SUMLINE,39          PRINTS SUM LINE
+           DR        12,9                DIVIDES 9 BY 10
+           M         12,=F'2'            MUTLIPLIES QUOTIENT BY 2
+           CR        12,9                COMPARES REG12 AND REG9
+           BC        B'1010',QUO         BRANCHES TO QUO
+           A         12,=F'1'            ROUNDS UP TO 1
+QUO        XDECO     9,AVERAGE           PRINTS AVERAGE
+           XPRNT     AVERLINE,39         PRINTS AVERAGE LINE
+           BR        14                  CODE ENDS  HERE
+           LTORG                         LITERALS START HERE
+HEADER     DC        C'0'
+           DC        CL40' '
+           DC        CL28'Sales Report -- Widgets-R-Us'
+DESCRIP    DC        C'0'
+           DC        CL4' '
+           DC        CL8'ORDER ID'
+           DC        CL4' '
+           DC        CL10'PRODUCT ID'
+           DC        CL4' '
+           DC        CL10'PRICE EACH'
+           DC        CL8' '
+           DC        CL14'NUMBER ORDERED'
+           DC        CL4' '
+           DC        CL8'DISCOUNT'
+           DC        CL4' '
+           DC        CL8'SHIPPING'
+           DC        CL8' '
+           DC        CL5'TOTAL' 
+LINE       DC        C'0'
+ORDERID    DS        CL12
+           DC        CL2' '
+PRODID     DS        CL8
+           DC        CL2' '
+PRICE      DS        CL12
+           DC        CL8' '
+NUMORD     DS        CL12
+           DC        CL2' '
+DISC       DS        12C
+           DC        CL2' '
+SHIPPIN    DS        CL12
+           DC        CL2' '
+TOTAL      DS        CL12
+RESULINE   DS        C'-'
+           DC        CL22'TOTAL NUMBER OF SALES:'
+           DC        CL4' '
+TOTALSA    DS        CL12
+SHIPLINE   DS        C'0'
+           DC        CL26'NUMBER WITH FREE SHIPPING:'
+SHIP0      DS        CL12
+SUMLINE    DS        C'0'
+           DC        CL17'SUM OF ALL SALES:'
+           DC        CL9' '
+SUM        DS        CL12
+AVERLINE   DS        C'0'
+           DC        CL19'AVERAGE SALE TOTAL:'
+           DC        CL4' '
+AVERAGE    DS        CL12
+BUFFER     DS        80C
+           END       MAIN
+/*
+//FT05F001 DD DSN=KC02314.SPRING19.CSCI360.HW3DATA,DISP=SHR
+/

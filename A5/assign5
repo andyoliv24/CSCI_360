@@ -1,0 +1,202 @@
+//KC03D4F1 JOB ,'Andy Olivares',MSGCLASS=H
+//STEP1 EXEC PGM=ASSIST
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN DD *
+********************************************
+* Program: ASSIGN5
+* Programmer: Andy Olivares, CRAIG ULLRICH
+*
+* Register usage:
+* 10 LINKAGE
+* 12 BASE REGISTER
+* 13 FORWARD POINTER
+* 14 ADDRESS OF BASE REGISTER
+* 15 BASE REGISTER
+**************************************************************
+MAIN     CSECT                              MAIN PROGRAM
+         USING    MAIN,12                   REG 12 BASE REG
+         STM      14,12,12(13)              STORE REGS
+         LR       12,15                     LOAD REG 15 INTO 12
+         LA       14,SAVE1                  LOAD SAVE1 ADDRESS TO 14
+         ST       14,8(13)                  STORE 14 THRU 8 INTO 12
+         ST       13,4(14)                  STORE 13 THRU 4 INTO 13
+         LR       13,14                     LOAD REG 13, INTO REG 14
+         XPRNT    HEADER,45                 HEADER
+         LA       1,=A(TABLE,EOT,BUFFER)    TABLE,EOT,BUFFER ADDRESSES
+         L        10,=V(BUILD)              LOAD BUILD ADDRESS
+         BALR     14,10                     BRANCH TO BUILD
+         LA       1,=A(TABLE,EOT)           TABLE,EOT,BUFFER ADDRESSES
+         L        10,=V(PRINT)              LOAD PRINT ADDRESS
+         BALR     14,10                     BRANCH TO PRINT
+         XPRNT    HEADER2,86                SPACE
+         LA       1,=A(TABLE,EOT,BUFFER)    TABLE,EOT,BUFFER ADDRESSES
+         L        10,=V(TALLY)              LOAD PRINT ADDRESS
+         BALR     14,10                     BRANCH TO PRINT
+         L        13,4(13)                  RESTORE REGS
+         LM       14,12,12(13)              RESTORE REGS
+         BR       14                        CODE ENDS
+         LTORG                              LITERALS START
+TABLE    DS       79F'-16'                  TABLE VARIABLE
+EOT      DS       0H                        END OF FILE
+BUFFER   DS       80C                       BUFFER
+         DC       C'*'                      
+SAVE1    DS       18F'0'                    SAVE REG VARIABLE
+HEADER   DC       C'-'                      HEADER VARIABLE
+         DC       CL30' '
+         DC       CL14'TABLE CONTENTS'
+HEADER2  DC       C'-'                      HEADER2 VARIABLE
+         DC       CL86' '
+EXIT     DS       F                         EXIT PROGRAM
+***********************************************************************
+*                       BUILD EXTERNAL SUBROUTINE
+*  REG USAGE:
+*  2 HAS NUMBER POINTER (TABLE)
+*  3 HAS TABLE ADDRESS
+*  4 EOT
+*  5 BUFFER ADDRESS
+*  10 BASE REGISTER
+*  14 BRANCH
+***********************************************************************
+BUILD    CSECT
+         STM       14,12,12(13)       STORE REGS        
+         LR        12,15              LOAD REG 15 INTO 12
+         USING     BUILD,10           SET REG10 AS BASE REG
+         LM        3,5,0(1)           LOAD PARAMETERS
+         LA        14,SAVER           LOAD SAVER ADDRESS INTO REG14
+         ST        13,4(,14)          STORE REG 14 INTO REG13 THRU REG4
+         ST        14,8(,13)          STORE REG 13 INTO REG14 THRU REG8
+         LR        13,14              LOAD REG 14 INTO 13
+LOOP     XREAD     0(,5),80           READ NUMBER
+         BC        B'0001',FINISH     IF FAIL READING GO TO FINISH
+         LA        1,0(,5)            LOAD ADDRESS OF BUFFER INTO REG1
+READ     XDECI     2,0(,1)            CONVERT NUMBER INTO BINARY
+         BO        LOOP               IF OVERFLOW GO TO LOOP
+         ST        2,0(,3)            STORE NUMBER IN TABLE
+         LA        3,4(,3)            ADVANCE TABLE POINTER
+         CR        3,4                COMPARE TABLE POINTER TO EOT
+         BE        FINISH             IF EOT GO TO FINISH
+         B         READ               GO TO READ
+FINISH   L         13,4(,13)          RESTORE REGS
+         LM        14,12,12(13)       RESTORE REGS
+         BR        14                 CODE ENDS
+         LTORG                        LITERALS START
+SAVER    DS        18F'0'
+***********************************************************************
+*                       PRINT EXTERNAL SUBROUTINE
+*  REG USAGE:
+*  2 TABLE ADDRESS
+*  3 IS USED AS A POINTER TO EOT
+*  4 USED FOR STORING NUMBER
+*  7 USED AS A COUNTER
+*  9 POINTER TO NUMBER TAG
+*  14 BRANCH
+***********************************************************************
+PRINT     CSECT
+          STM      14,12,12(13)      STORE REGS
+          LR       12,15             LOAD REG15 INTO REG12
+          USING    PRINT,10          SET RE10 AS BASE REG
+          LM       2,3,0(1)          LOAD PARAMS
+          LA       14,SAVE           LOAD SAVE ADDRESS INTO REG14
+          ST       13,4(,14)         STORE REG14 INTO REG13 THRU REG4
+          ST       14,8(,13)         STORE REG13 INTO REG14 THRU REG8
+          LR       13,14             LOAD REG14 INTO REG13
+          SR       7,7               SET COUNTER TO 0      
+LOOPP     MVI      NUMS,C' '         USE OVERLAP
+          MVC      NUMS+1(72),NUMS   CLEAR LINE    
+          LA       9,NUMS            POINTER NUMS INTO REG9
+LOOPP1    CR       2,3               COMPARE REG2 TO REG3(EOT)
+          BC       B'1010',END       IF TABLE ENDS GO TO ENDD          
+          C        7,=F'6'           CHECK FOR 6 NUMBERS ON SAME LINE
+          BE       LOOPP2            GO TO LOOPP2
+          L        4,0(2)            LOAD NUMBER FROM TABLE INTO REG4
+          C        4,=F'-987654321'  COMPARE TO DELIMITER
+          BE       END               BRANCH TO END
+          XDECO    4,0(9)            CONVERT TO BASE 10   
+          LA       2,4(2)            ADVANCE TABLE POINTER    
+          LA       9,12(9)           AVANCE NUMBER TAG POINTER
+          A        7,ONE             INCREMENT COUNTER BY ONE
+          B        LOOPP1            GO TO LOOPP1
+LOOPP2    L        7,=F'0'           SET REG7 TO 0   
+          XPRNT    NUMBER,74         PRINT LINE NUMBER 
+          B        LOOPP             GO TO LOOPP  
+END       XPRNT    NUMBER,74         PRINT LINE NUMBER
+          L        13,4(,13)         RESET REGS
+          LM       14,12,12(13)      RESET REGS
+          BR       14                CODE ENDS
+          LTORG
+NUMBER    DC       C'0'               PRINTS NUMBERS LINE
+NUMS      DS       75CL12             PRINTS NUMBER
+SAVE      DS       18F'0'
+ONE       DC       F'1' 
+***********************************************************************
+*                       TALLY EXTERNAL SUBROUTINE
+*  REG USAGE:
+*  2 TABLE POINTER
+*  3 EOT
+*  9 NUMBER TAG POINTER
+*  10 BASE REGISTER
+*  14 BRANCH
+***********************************************************************
+TALLY    CSECT     
+         STM       14,12,12(13)        STORE REGS        
+         LR        12,15               LOAD REG 15 INTO 12
+         USING     TALLY,10            SET REG10 AS BASE REG
+         LM        2,3,0(1)            LOAD PARAMETERS
+         LA        14,SAVER2           LOAD SAVER ADDRESS INTO REG14
+         ST        13,4(,14)        STORE REG 14 INTO REG13 THRU REG4
+         ST        14,8(,13)        STORE REG 13 INTO REG14 THRU REG8
+         LR        13,14            LOADD REG 14 INTO 13
+         LR        8,2
+         LR        9,8
+         SR        7,7
+LOOP1    DS        0H
+         L         4,0(2)            NUM FROM TABLE INTO R4          
+         C         4,=F'-987654321'  CHECK FOR DELM 
+         BE        LOOP2             IF FOUND BRANCH
+         LA        2,4(2)            ELSE ADVANCE THE POINTER
+         B         LOOP1             BACK TO LOOP TOP
+*
+LOOP2    DS        0H 
+         LA        2,4(2)
+         L         4,0(2)     
+         LR        8,9              RESET TABLE POINTER
+         CR        4,3              END OF TABLE?
+         BC        B'1010',FINISH2       
+         SR        7,7
+         B         SEARCH           BRANCH TO LOOK FPR THE NUMBER
+SEARCH   DS        0H
+         L         5,0(8)
+         LA        8,4(8)
+         CR        4,5
+         BE        FOUND
+CONTINUE C         5,=F'-987654321'
+         BE        TPRINT
+         B         SEARCH
+*
+FOUND    DS        0H
+         A          7,=F'1'
+         B          CONTINUE
+*
+TPRINT   DS        0H
+         XDECO     7,NUMSA
+         XDECO     4,NUMS2
+         XPRNT     PLINE,65
+         BE        LOOP2
+*
+FINISH2  L         13,4(,13)           RESTORE REGS
+         LM        14,12,12(13)        RESTORE REGS
+         BR        14                  CODE ENDS
+         LTORG                         LITERALS START
+PLINE    DC        C'-'
+         DC        CL26'There are                 '
+NUMSA    DS        12C
+         DC        CL13' MULTIPLE OF'
+         DC        C'0'
+NUMS2    DS        12C
+SAVER2   DC        18F'0'
+*********************************
+          END       MAIN
+/*
+//FT05F001  DD  DSN=KC02314.SUMMER19.CSCI360.HW5DATA,DISP=SHR
+//

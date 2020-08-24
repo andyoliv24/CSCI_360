@@ -1,0 +1,96 @@
+//KC03D42 JOB ,'Andy Olivares' ,MSGCLASS=H
+//STEP1 EXEC PGM=ASSIST
+//STEPLIB DD DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT DD SYSOUT=*
+//SYSIN DD *
+**************************************************
+* 
+* Program: ASSIGN2 
+* Programmer: Andy Olivares
+*                                
+* Register usage:
+*
+* 0       used as a counter
+* 1       used for XDECI
+* 2       holds w value
+* 3       holds x value
+* 4       holds y value
+* 5       holds z value
+* 7       holds total sum of all values
+* 10      holds count of lines read
+* 15      base register
+*************************************************************
+MAIN       CSECT
+           USING     MAIN,15
+           SR        10,10                 SETS R10 TO 0(COUNTER)
+           SR        7,7                   SETS R7 TO 0
+LOOP       XREAD     BUFFER,80             STARTS LOOP
+           BC        B'0100',LOOPEND       CHECK IF FILE ENDS
+           A         10,ONE                ADDS ONE TO COUNTER
+           XDECI     2,BUFFER              GETS FIRST NUM
+           XDECI     3,0(1)                GETS SECOND NUM
+           XDECI     4,0(1)                GETS THIRD NUM
+           XDECI     5,0(1)                GETS FOURTH NUM
+           XDECO     2,WVALUE              PRINTS VALUE W
+           XDECO     3,XVALUE              PRINTS VALUE X
+           XDECO     4,YVALUE              PRINTS VALUE Y
+           XDECO     5,ZVALUE              PRINTS VALUE Z
+           SR        2,4                   SUBTRACTS REG4 FROM REG2
+           AR        2,3                   ADDS REG3 TO REG2
+           SR        2,5                   SUBTRACTS REG5 FROM REG2
+           XDECO     2,SUM                 STORES REG2 INTO SUM
+           AR        7,2                   ADDS REG7 AND REG2
+           XDECO     7,TOTALSUM            STORES REG7 INTO TOTALSUM
+           XPRNT     LINE,96               PRINTS LINE
+           BC        B'1111',LOOP          GOES TO THE TOP OF LOOP
+LOOPEND    XDECO     10,LINESNUM           STORES REG10 INTO LINESUM
+           XPRNT     NEWLINE,69            PRINTS NEW LINE
+           BR        14                    CODE ENDS HERE
+           LTORG                           LITERALS START HERE
+LINE       DC        C' '                  LINE FORMAT
+           DC        CL3'w= '              PRINTS w=
+WVALUE     DS        12C                   WVALUE VARIABLE
+           DC        CL3' '
+           DC        CL3'x= '              PRINTS x=
+XVALUE     DS        12C                   WVALUE VARIABLE
+           DC        CL3' '
+           DC        CL3'y= '              PRINTS y=
+YVALUE     DS        12C                   YVALUE VARIABLE
+           DC        CL3' ' 
+           DC        CL4'z= '              PRINTS z= 
+ZVALUE     DS        12C                   ZVALUE VARIABLE
+           DC        CL5' '  
+           DC        CL8'RESULT= '
+SUM        DS        12C                    SUM VARIABLE
+NEWLINE    DC        C' '                  NEWLINE VARIABLE
+           DC        CL14'TOTAL LINES = '
+LINESNUM   DS        12C                   LINESNUM VARIABLE
+           DC        CL8' '
+           DC        CL19'total sum is = '
+TOTALSUM   DS        12C                   TOTAL SUM VARIABLE   
+BUFFER     DS        80C                   BUFFER VARIABLE
+ONE        DC        F'1'                  ONE VARIABLE
+           END       MAIN           
+/*
+//FT05F001   DD  *
+   005   005   005   005
+   006   001   002   004
+     0    +7     2   -45
+   100   088   035    10
+     0     0     0     0
+    10   -10    10   -10
+   500   230     9    58
+   516   853     0    17
+   020     0   245   316
+   529   977   681     0
+   013   250    85   831
+     0   364   275     0
+   887   100   293   993
+   234   447   591    13   
+   -89    -7    23   104
+   001   002   003   004
+   008   007   006   005
+   999   998   997   996
+/*
+//FT06F001   DD SYSOUT=*
+//

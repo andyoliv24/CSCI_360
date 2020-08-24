@@ -1,0 +1,336 @@
+//KC03D4F1 JOB ,'CRAIGULLRICH',MSGCLASS=H
+//STEP1    EXEC  PGM=ASSIST
+//STEPLIB    DD  DSN=KC02293.ASSIST.LOADLIB,DISP=SHR
+//SYSPRINT   DD  SYSOUT=*
+//SYSIN      DD  *
+************************************************************
+*
+*  Program:     ASSIGN8
+*  Programmer:  Andy Olivares, Craig Ullrich
+************************************************************
+ENTRY   DSECT     Format for Table
+$ID      DS     CL4
+$TEST1   DS     CL2
+$TEST2   DS     CL2
+$HOMENUM DS     CL1
+$HOMETOT DS     CL2
+$W       DS     CL2
+$I       DS     CL1
+$QUIZNUM DS     CL2
+$QUIZTOT DS     CL1
+*********************************************
+*  Register usage:
+*  15   MAIN
+*  14   Exit
+*  13   Save location
+*  10   Location to branch to
+*  1    Params
+***********************************
+MAIN     CSECT
+         USING MAIN,15
+         ST    14,EXIT      Save Exit Location
+         LA    13,SAVEM     Set the save area
+         LA    1,TABLE      Start Loading params into PARMS
+         ST    1,PARMS
+         LA    1,EOT
+         ST    1,PARMS+4
+         LA    1,PARMS      End Loading Params into PARMS
+         L     10,=V(BUILD)
+         BALR  14,10 Branch to Build
+         XDUMP TABLE,162
+         LA    1,HEADA
+         ST    1,PARMS+8
+         LA    1,PARMS      End Loading Params into PARMS
+         L     10,=V(PRINT)
+         BALR  14,10 Branch to Print
+         LA    1,PARMS      End Loading Params into PARMS
+         L     10,=V(SORT)
+         BALR  14,10 Branch to sort
+         LA    1,HEADB
+         ST    1,PARMS+8
+         LA    1,PARMS      End Loading Params into PARMS
+         L     10,=V(PRINT)
+         BALR  14,10 Branch to Print
+*
+         L     14,EXIT      Load exit location
+         BR    14           End program
+         LTORG              Literals are put here
+         ORG   MAIN+((*-MAIN+31)/32)*32
+TABLE    DC    110CL27'                           '
+EOT      DS    F
+HEADA    DC    CL46'1                          Student Information'
+         DC    CL32'                        Page   1'
+HEADB    DC    CL48'1                          Student Information'
+         DC    CL32' by $HOMETOT                 Page   4'
+PARMS    DC    4F'0'
+SAVEM    DS    18F'0'
+EXIT     DS    F
+***********************************
+*    BUILD SUBROUTINE
+*  Register usage:
+*   15    DONT USE
+*   14    Exit
+*   13    SAVE AREA
+*    10   USED FOR DSECT
+*    8    EOT
+*    7    TABLES STARTS
+*    4    Length of item in the buff
+*    2,3  HOLDS BINARY NUMBERS
+*    1    USED AS BUFFER ADDRESS
+***********************************
+BUILD    CSECT
+         STM   14,12,12(13)
+         LR    12,15
+         USING BUILD,10  External register is R10
+         LA    14,SAVEB
+         ST    13,4(,14)
+         ST    14,8(,13)
+         LR    13,14
+*
+         LM    7,8,0(1) Load params R2=table R3=last entry, R4=buff
+         USING ENTRY,7
+READ     XREAD BUFF,80 read in lines
+         BL    BEND
+         LA    1,BUFF
+*$ID
+         PACK  TEMP(8),1(8,1)      Pack $ID
+         CVB   2,TEMP              Convert $ID to binary
+         STCM  2,B'1111',$ID       Store
+*$TEST1
+         PACK  TEMP(8),1(11,1)     Pack 
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0111',$TEST1    Store
+*$TEST2
+         PACK  TEMP(8),1(16,1)     Pack 
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0111',$TEST2    Store
+*$HOMENUM
+         PACK  TEMP(8),1(21,1)     Pack
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0011',$HOMENUM  Store
+*$HOMETOT
+         PACK  TEMP(8),1(24,1)     Pack
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0111',$HOMETOT  Store
+*$W
+         PACK  TEMP(8),1(29,1)     Pack 
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0001',$W        Store
+*$I
+         PACK  TEMP(8),1(29,1)     Pack 
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0001',$I        Store
+*$QUIZNUM
+         PACK  TEMP(8),1(35,1)     Pack
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0011',$QUIZNUM  Store
+*$QUIZTOT
+         PACK  TEMP(8),1(38,1)     Pack
+         CVB   2,TEMP              Convert to binary
+         STCM  2,B'0111',$QUIZTOT  Store
+*
+         LA    7,27(,7) Advance pointer
+         B     READ    Back to top of loop
+BEND     DS    0H
+         ST    7,0(0,8) Store EOT
+*
+         L     13,4(,13)
+         LM    14,12,12(13)
+         BR    14           End subroutine
+         LTORG              Literals are put here
+*
+BUFF     DC    80C' '
+         DC    C'*'
+TEMP     DS    D
+NUM      DC    PL3'1980'
+SAVEB    DS    18F'0'
+***********************************
+*  PRINT SUBROUTINE
+*
+*  Register usage:
+*   15    DONT USE
+*   14    Exit
+*   13    Save Area
+*   9     Location of page headder
+*   8     Location of EOT
+*   7     Table pointer
+*   6     counter
+*   2   Registers for binary  changing
+***********************************
+PRINT    CSECT
+         STM   14,12,12(13)
+         LR    12,15
+         USING PRINT,10     Use R10 as base register
+         LM    7,9,0(1)     Load params into R3,R4, and R5
+         LA    14,SAVEC
+         ST    13,4(,14)
+         ST    14,8(,13)
+         LR    13,14
+*
+         USING ENTRY,7
+         L     6,=F'0' Counter ofr elements per page
+PLOOP    C     7,0(0,8)
+         BE    PEND
+         C     6,=F'0' Check element counter
+         BE    PHEADDER Print headder if true
+CONT     DS    0H
+*
+         MVC   DTEMP(8),$ID move $ID to a fullword bounday
+         L     2,DTEMP Load $ID
+         CVD   2,DTEMP convert to packed
+         MVC   P$ID(10),=X'40212020202020202020' format $ID
+         ED    P$ID(10),DTEMP+3 Format
+         MVI   PLINE+1,C' '
+         MVI   PLINE+2,C'Q'
+*
+         MVC   PTEMP(12),$TEST1 Set $TEST1
+         XC    PTEMP(4),$ID
+         XC    PTEMP+4(4),$ID 
+         XC    PTEMP+8(4),$ID
+         MVC   P$TEST1(12),PTEMP store $TEST1
+*
+         MVC   FTEMP(4),=X'00000000'
+         MVC   FTEMP+2(2),$TEST2 Set $TEST2
+         L     2,FTEMP load $TEST2
+         SRL   2,9  Clear all but year
+         CVD   2,DTEMP
+         ZAP   DTEMP(3),DTEMP(8) fomat packed
+         AP    DTEMP(3),=PL3'1980'
+         MVC   PDAT+6(6),=X'402120202020' Format
+         ED    PDAT+6(6),DTEMP
+         L     2,FTEMP
+         SLL   2,27 Clear all but day
+         SRL   2,27
+         CVD   2,DTEMP
+         ZAP   DTEMP(2),DTEMP(8) fomat packed
+         MVC   PDAT+3(5),=X'4021202061' Format
+         ED    PDAT+3(4),DTEMP
+         L     2,FTEMP
+         SLL   2,23 Clear all but month
+         SRL   2,28
+         CVD   2,DTEMP
+         ZAP   DTEMP(2),DTEMP(8) fomat packed
+         MVC   PDAT(5),=X'4021202061' Format
+         ED    PDAT(4),DTEMP
+*
+         MVC   P$HOMENUM(4),$HOMENUM set $HOMENUMor
+*
+         MVC   P$HOMETOT(5),=X'F0214B202040' format
+         ED    P$HOMETOT(5),$HOMETOT set $HOMETOT
+         MVI   P$HOMETOT,C' '
+*
+         MVC   FTEMP(4),=X'00000000'
+         MVC   FTEMP+2(2),$W set $W
+         L     2,FTEMP load
+         CVD   2,DTEMP convert to packed
+         ZAP   DTEMP(2),DTEMP(8) format packed
+         MVC   P$W(4),=X'40202120' format
+         ED    P$W(4),DTEMP format
+*
+         MVC   FTEMP(4),=X'00000000' 
+         MVC   FTEMP+3(1),$I set $I
+         L     2,FTEMP load
+         CVD   2,DTEMP convert to packed
+         ZAP   DTEMP(2),DTEMP(8) format packed
+         MVC   P$I(4),=X'40202120' fomat
+         ED    P$I(4),DTEMP fill format
+         XPRNT PLINE,75 print line
+         LA    7,27(,7) advance pointer
+         S     6,=F'1'
+         B     PLOOP
+*
+PHEADDER L     6,=F'40' Set counter to 50
+         MVC   65(4,9),=X'40202020' fromat pge number
+         ED    65(4,9),PCOUNT set page number
+         XPRNT 0(,9),69 print page headder
+         XPRNT HEAD1,69 Print table headder
+         XPRNT HEAD2,69 Print table headder
+         AP    PCOUNT,=PL1'1' add one to page count
+         B     CONT Continue printing
+*
+PEND     L     13,4(,13)
+         LM    14,12,12(13)
+         BR    14           End of subroutine
+         LTORG              Literals are put here
+PCOUNT   DC    PL2'1'
+PLINE    DC    1C' '
+P$ID      DC    10C' '
+         DC    2C' '
+P$TEST1     DC    12C' '
+         DC    4C' '
+PDAT     DC    12C' '
+         DC    5C' '
+P$HOMENUM     DC    4C' '
+         DC    4C' '
+P$HOMETOT     DC    5C' '
+         DC    4C' '
+P$W     DC    4C' '
+         DC    4C' '
+P$I     DC    4C' '  75L
+PTEMP    DC    12C' '
+FTEMP    DS    F
+DTEMP    DS    D
+HEAD1    DC    CL46'-  Student                                    '
+         DC    CL32'                  Total  Cur$TEST2t'
+HEAD2    DC    CL46'    $ID        $TEST1sword         $TEST2ewal Date   '
+         DC    CL32'$HOMENUMor     $HOMETOT     Hours    Hours'
+SAVEC    DS    18F'0'
+***********************************
+*  SORT SUBROUTINE
+*  Register usage:
+*   15    DONT USE
+*   14    Exit
+*   13    Save Area
+*    8    Location of EOT
+*    7    Location of table
+*    4    lower table element
+*    2    sort start location
+***********************************
+SORT   CSECT
+         STM   14,12,12(13)
+         LR    12,15
+         USING SORT,10
+         LA    14,SAVED
+         ST    13,4(,14)
+         ST    14,8(,13)
+         LR    13,14
+         LM    7,8,0(1)     Load params into R3,R4, and R5
+*
+         L     2,0(,7)
+         L     8,0(,8)
+         S     8,=F'27'
+         USING ENTRY,2
+FOR      DS    0H For the number of elements in the table
+         S     8,=F'27'
+         LR    2,7
+         S     2,=F'27'
+         CR    2,8
+         BE    SEND
+         BH    SEND
+WHILE    DS    0H While the lower element is greater than the upper
+         A     2,=F'27'
+         CLC   22(2,2),49(2) Comparison
+         BL    SWAP Branch to swap on Low
+BSWAP    DS    0H
+         CR    2,8
+         BH    FOR
+         BL   WHILE
+         B     FOR branch to top of for
+*
+SWAP     DS    0H Swap the two elements
+         MVC   STEMP(27),0(2) Store R3 in temp
+         MVC   0(27,2),27(2)  Store R4 in R3
+         MVC   27(27,2),STEMP  Store temp in R4
+         B     BSWAP
+*
+SEND     L     13,4(,13)
+         LM    14,12,12(13)
+         BR    14           End of subroutine
+         LTORG              Literals are put here
+SAVED    DS    18F'0'
+STEMP    DS    27C
+***********************************
+         END   MAIN
+/*
+//FT05F001  DD  DSN=KC02314.AUTUMN17.CSCI360.HW8DATA,DISP=SHR
+//
